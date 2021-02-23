@@ -1,0 +1,4 @@
+liquidctl
+pydbus
+# nvidia-ml-py==11.450.51
+# win10toast

@@ -1,0 +1,14 @@
+{
+    "uuid": "pulley@mjjw",
+    "name": "Kraken Control",
+    "description": "Control Kraken AIO",
+    "cinnamon-version": [
+        "3.6",
+        "3.8",
+        "4.0",
+        "4.2",
+        "4.4",
+        "4.6"
+    ],
+    "last-edited": 1591912096
+}

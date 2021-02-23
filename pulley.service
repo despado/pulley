@@ -1,0 +1,14 @@
+[Unit]
+Description=Kraken CPU temperature control
+After=multi-user.target
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+ExecStart=/usr/bin/python3 /home/mjjw/Coding/pulley/pulley.py
+StandardInput=tty-force
+
+[Install]
+WantedBy=multi-user.target
+
