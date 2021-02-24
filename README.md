@@ -77,7 +77,7 @@ You can't, none is provided. Sorry about that.
 
 * Integrate with [gkraken](https://gitlab.com/leinardi/gkraken) or similar for
   a nice UI to set fan curves
-* Package this up so that it is easy to install
+* Package this up with proper installation rather than bodged together shell script
 * CPU temperature display on Z series
 * Set the ring color based on temperature on X series
 
