@@ -1,3 +1,4 @@
+// Originally used temperature@fevimu as a template
 const St = imports.gi.St;
 const PopupMenu = imports.ui.popupMenu;
 const GLib = imports.gi.GLib;
@@ -22,6 +23,8 @@ const _ = function(str) {
 const KrakenControllerProxy = Gio.DBusProxy.makeProxyWrapper('\
 <node> \
     <interface name="net.mjjw.KrakenController"> \
+        <method name=\'Boost\'> \
+        </method> \
         <property name="KrakenDevice" type="s" access="read"> \
             <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/> \
         </property> \
@@ -58,6 +61,8 @@ KrakenControlApplet.prototype = {
         this.settings = new Settings.AppletSettings(this.state, metadata.uuid, instance_id);
 
         this.settings.bindProperty(Settings.BindingDirection.IN, 'use-fahrenheit', 'useFahrenheit', () => this.on_settings_changed(), null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-temps', 'showTemps', () => this.on_settings_changed(), null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'show-boost', 'showBoost', () => this.on_settings_changed(), null);
 
         this.statusLabel = new St.Label({
             text: '--',
@@ -159,12 +164,18 @@ KrakenControlApplet.prototype = {
         let section = new PopupMenu.PopupMenuSection(_('Temperature'));
         if (items.length > 0) {
             for (let i = 0; i < items.length; i++) {
-                section.addMenuItem(new PopupMenu.PopupMenuItem(items[i]));
+                if (typeof(items[i]) != "string") {
+                    let item = new PopupMenu.PopupMenuItem(items[i][0]);
+                    item.connect('activate', items[i][1]);
+                    section.addMenuItem(item);
+                } else {
+                    section.addMenuItem(new PopupMenu.PopupMenuItem(items[i]));
+                }
             }
         } else {
-            let item = new PopupMenu.PopupMenuItem(this.content);
+            let item = new PopupMenu.PopupMenuItem("Kraken Controller");
             item.connect('activate', function() {
-                Util.trySpawn(['xdg-open', 'https://github.com/linuxmint/cinnamon-spices-applets/issues?utf8=%E2%9C%93&q=is%3Aissue+temperature%40fevimu+']);
+                Util.trySpawn(['xdg-open', 'https://github.com/despado/pulley']);
             });
             section.addMenuItem(item);
         }
@@ -181,9 +192,9 @@ KrakenControlApplet.prototype = {
         let temperature = this.state.useFahrenheit ? this.toFahrenheit(celcius) : celcius;
         var unit = "";
         if (this.state.useFahrenheit) {
-            unit = " °F";
+            unit = "°F";
         } else {
-            unit = " °C";
+            unit = "°C";
         }
         return temperature.toString() + unit;
     },
@@ -194,21 +205,26 @@ KrakenControlApplet.prototype = {
 
         let items = [];
         items.push("Device: " + kraken_info.KrakenDevice);
-        if (kraken_info.LiquidTemp > 0) {
-            items.push("Liquid: " + this.formatTemp(kraken_info.LiquidTemp));
+        if (this.state.showTemps) {
+            if (kraken_info.LiquidTemp > 0) {
+                items.push("Liquid: " + this.formatTemp(kraken_info.LiquidTemp));
+            }
+            if (kraken_info.CPUTemp > 0) {
+                items.push("CPU: " + cpuTemp);
+            }
+            if (kraken_info.PumpDuty > 0) {
+                items.push("Pump: " + kraken_info.PumpDuty + "%");
+            }
+            if (kraken_info.FanDuty > 0) {
+                items.push("Fan: " + kraken_info.FanDuty + "%");
+            }
         }
-        if (kraken_info.CPUTemp > 0) {
-            items.push("CPU: " + cpuTemp);
+        if (this.state.showBoost) {
+            items.push(["Boost", function() { this.kcProxy.BoostSync(); }.bind(this)]);
         }
-        if (kraken_info.PumpDuty > 0) {
-            items.push("Pump: " + kraken_info.PumpDuty + "%");
-        }
-        if (kraken_info.FanDuty > 0) {
-            items.push("Fan: " + kraken_info.FanDuty + "%");
-        }
-        if (items.length == 1) {
-            items.push("Is pulley running?");
-        }
+        if (kraken_info.LiquidTemp <= 0 && kraken_info.CPUTemp <= 0 && kraken_info.PumpDuty <= 0 && kraken_info.FanDuty <= 0)
+            items = [ items[0], "Is pulley running?" ];
+            
         this.set_applet_label("CPU: " + cpuTemp);
         if (this.menu.isOpen) {
             this.buildMenu(items);

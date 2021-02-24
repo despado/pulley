@@ -34,6 +34,8 @@ The name CAM was taken.
 * Applies hysteresis to prevent overly frequent updates
 * Works on Linux only (easily portable if you know how to get CPU temperature)
 * No warranty whatsoever, don't blame me if your PC catches fire
+* Cinnamon Applet
+* Controlled by config file
 
 ## Requirements
 
@@ -51,6 +53,8 @@ On my distribution something like this will probably work. Yours may differ:
     cd pulley
     sudo apt install python3 python3-pip libusb-1.0-0
     pip3 install -r ./requirements.txt
+    # edit this file to adjust your fan curves
+    sudo cp pulley.conf /etc/pulley.conf
     # to auto run pulley
     # edit the file pulley.service to point to the right place
     nano pulley.service # .....
@@ -78,8 +82,9 @@ You can't, none is provided. Sorry about that.
 
 * Integrate with [gkraken](https://gitlab.com/leinardi/gkraken) or similar for
   a nice UI to set fan curves
-* Read fan curves from a config file
 * Package this up so that it is easy to install
+* CPU temperature display on Z series
+* Set the ring color based on temperature on X series
 
 ## License
 

@@ -3,5 +3,15 @@
     "type": "switch",
     "default": false,
     "description": "Show temperature in Fahrenheit"
+  },
+  "show-temps": {
+    "type": "switch",
+    "default": true,
+    "description": "Show temperature labels when clicked"
+  },
+  "show-boost": {
+    "type": "switch",
+    "default": true,
+    "description": "Show BOOST button"
   }
 }

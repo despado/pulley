@@ -1,3 +1,5 @@
+import json
+from configparser import ConfigParser
 from liquidctl.driver.kraken2 import KrakenTwoDriver
 from liquidctl.driver.kraken3 import KrakenZ3, KrakenX3
 from time import sleep, monotonic
@@ -9,10 +11,122 @@ from gi.repository import GLib
 
 from pydbus.generic import signal
 
+class KrakenControllerConfig:
+    def __init__(self):
+        self.configFile = "/etc/pulley.conf"
+        self.config = {
+            'mode': "custom",
+            'enable_dbus': True,
+            'use_liquid_temp': False,
+            'boost_duration': 600,
+            'cpu_critical': 80,
+            'liquid_critical': 40,
+            'boost_after_critical': True,
+            'fixed_fan_speed': 75,
+            'fixed_pump_speed': 75,
+            'cpu_fan_temp': [0, 30, 40, 50, 60, 70, 75],
+            'cpu_fan_speed': [25, 25, 25, 25, 50, 75, 100],
+            'cpu_pump_temp': [0, 30, 40, 50, 60, 70, 75],
+            'cpu_pump_speed': [60, 60, 60, 60, 80, 90, 100],
+            'liquid_fan_temp': [0, 35, 40],
+            'liquid_fan_speed': [25, 25, 100],
+            'liquid_pump_temp': [0, 35, 40],
+            'liquid_pump_speed': [60, 60, 100]}
+
+    def join_curve(self, x, y):
+        if len(x) != len(y):
+            raise Exception("Curve axis must be of equal size")
+        result = [];
+        for idx in range(len(x)):
+            result.append([x[idx],y[idx]])
+        return result
+
+    def split_curve(self, curve):
+        x = [];
+        y = [];
+        for p in curve:
+            if len(p) != 2:
+                raise Exception("Curves must be pairs of points")
+            x.append(int(p[0]))
+            y.append(int(p[1]))
+        return { 'x': x, 'y': y }
+
+    def writeValues(self, config_out, config, values):
+        for value in values:
+            if type(value) is list:
+                config_out[value[0]] = config[value[1]]
+            else:
+                config_out[value] = config[value]
+        return config_out
+
+    def readConfig(self):
+        config = ConfigParser();
+        config.read(self.configFile)
+
+        if 'pulley' in config:
+            self.readValues(self.config, config['pulley'], ['mode', 'enable_dbus', 'use_liquid_temp', 'boost_duration', 'cpu_critical', 'liquid_critical', 'boost_after_critical'])
+
+        if 'fixed' in config:
+            self.readValues(self.config, config['fixed'], [['fan', 'fixed_fan_speed'], ['pump', 'fixed_pump_speed' ]])
+
+        if 'custom' in config:
+            curve_names = [ 'cpu_fan', 'cpu_pump', 'liquid_fan', 'liquid_pump' ];
+            curves = {}
+            curve_keys = []
+            for curve_name in curve_names:
+                curves[curve_name + "_curve"] = self.join_curve(self.config[curve_name + "_temp"], self.config[curve_name + "_speed"])
+                curve_keys.append(curve_name + "_curve")
+
+            self.readValues(curves, config['custom'], curve_keys)
+            for curve_name in curve_names:
+                curve = self.split_curve(curves[curve_name + "_curve"])
+                self.config[curve_name + "_temp"] = curve['x']
+                self.config[curve_name + "_speed"] = curve['y']
+
+    def writeConfig(self):
+        config = ConfigParser();
+        config['pulley'] = self.writeValues({}, self.config, ['mode', 'enable_dbus', 'use_liquid_temp', 'boost_duration', 'cpu_critical', 'liquid_critical', 'boost_after_critical'])
+        config['fixed'] = self.writeValues({}, self.config, [['fan', 'fixed_fan_speed'], ['pump', 'fixed_pump_speed' ]])
+
+        curve_names = [ 'cpu_fan', 'cpu_pump', 'liquid_fan', 'liquid_pump' ];
+        config['custom'] = {}
+        for curve_name in curve_names:
+            config['custom'][curve_name + "_curve"] = str(self.join_curve(self.config[curve_name + "_temp"], self.config[curve_name + "_speed"]))
+
+        with open(self.configFile, "w") as configFile:
+            config.write(configFile)
+
+    def readValue_(self, config_out, section, name_in, name_out):
+        if name_out in config_out:
+            if type(config_out[name_out]) is bool:
+                config_out[name_out] = section.getboolean(name_in, config_out[name_out])
+            elif type(config_out[name_out]) is int:
+                config_out[name_out] = section.getint(name_in, config_out[name_out])
+            elif type(config_out[name_out]) is float:
+                config_out[name_out] = section.getfloat(name_in, config_out[name_out])
+            elif type(config_out[name_out]) is list:
+                config_out[name_out] = json.loads(section.get(name_in, config_out[name_out]))
+            else:
+                config_out[name_out] = section.get(name_in, config_out[name_out])
+        else:
+            config_out[name_out] = section.get(name_in)
+
+    def readValue(self, config_out, section, name):
+        if type(name) is list:
+            self.readValue_(config_out, section, name[0], name[1])
+        else:
+            self.readValue_(config_out, section, name, name)
+
+    def readValues(self, config_out, section, names):
+        for name in names:
+            self.readValue(config_out, section, name)
+
 class KrakenControllerDBUS(object):
     dbus = """
         <node>
             <interface name='net.mjjw.KrakenController'>
+                <method name='Boost'>
+                </method>
                 <property name="KrakenDevice" type="s" access="read">
                     <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/>
                 </property>
@@ -32,12 +146,14 @@ class KrakenControllerDBUS(object):
         </node>
     """
 
-    def __init__(self):
+    def __init__(self, configMgr):
         self._kraken_device = "unknown"
         self._liquid_temp = int(0)
         self._cpu_temp = int(0)
         self._fan_duty = int(0)
         self._pump_duty = int(0)
+        self.controller = None
+        self.configMgr = configMgr
 
     @property
     def KrakenDevice(self):
@@ -88,6 +204,13 @@ class KrakenControllerDBUS(object):
             self._pump_duty = int(value)
             self.PropertiesChanged("net.mjjw.KrakenController", {"PumpDuty": self.PumpDuty}, [])
 
+    def Boost(self):
+        if self.controller is not None:
+            self.controller.boost()
+
+    def onConfigUpdated(self):
+        self.configMgr.writeConfig()
+
     PropertiesChanged = signal()
 
 
@@ -107,56 +230,16 @@ class KrakenController:
     FORCE_SET_THRESHOLD = 3
 
     # Hysteresis - scale up more aggressively than down
-    MIN_TEMP_CHANGE_UP = {
-        'cpu': 2,
-        'liquid': 1
-    }
-    MIN_TEMP_CHANGE_DOWN = {
-        'cpu': 5,
-        'liquid': 2
-    }
+    MIN_TEMP_CHANGE_UP = {'cpu': 2, 'liquid': 1}
+    MIN_TEMP_CHANGE_DOWN = {'cpu': 5, 'liquid': 2}
     MIN_TIME_CHANGE_UP = 0
     MIN_TIME_CHANGE_DOWN = 10
+    MIN_BOOST_DURATION = 10
 
-    CRIT_TEMP = {
-        'cpu': 80,
-        'liquid': 40
-    }
+    MIN_SPEED = {'fan': 25, 'pump': 60}
+    MAX_SPEED = {'fan': 100, 'pump': 100}
 
-    MIN_SPEED = {
-        'fan': 25,
-        'pump': 60
-    }
-
-    MAX_SPEED = {
-        'fan': 100,
-        'pump': 100
-    }
-
-    CURVES = {
-        'fan': {
-            'cpu': {
-                'temp': [0, 30, 40, 50, 60, 70, 75],
-                'speed': [25, 25, 25, 25, 50, 75, 100]
-            },
-            'liquid': {
-                'temp': [0, 35, 40],
-                'speed': [25, 25, 100]
-            },
-        },
-        'pump': {
-            'cpu': {
-                'temp': [0, 30, 40, 50, 60, 70, 75],
-                'speed': [60, 60, 60, 60, 80, 90, 100]
-            },
-            'liquid': {
-                'temp': [0, 35, 40],
-                'speed': [60, 60, 100]
-            }
-        },
-    }
-
-    def __init__(self, dbus_interface):
+    def __init__(self, dbus_interface, configMgr):
         # find the Kraken
         supported_devices = KrakenZ3.find_supported_devices()
 
@@ -171,6 +254,8 @@ class KrakenController:
 
         print("Found device: ", supported_devices[0].description)
         self.kraken_device = supported_devices[0]
+
+        self.configMgr = configMgr
         dbus_interface.KrakenDevice = supported_devices[0].description
 
         # The last update to the speeds
@@ -178,17 +263,29 @@ class KrakenController:
         self.last_temp = {'cpu': 0, 'liquid': 0}
         self.last_speed_set = {'fan': 0, 'pump': 0}
         self.dbus_interface = dbus_interface
+        self.boost_start = 0
+        self.dbus_interface.controller = self
+        self.was_boosting = False
+
+    # Run fan and pump at maximum for a few minutes
+    def boost(self):
+        self.boost_start = monotonic()
+        self.update_speed()
 
     # Returns a dictionary containing the status details of the Kraken.
     #
-    # Possible keys: fan, liquid, firmware, pump
+    # Possible keys: fan, liquid, firmware, pump (and now cpu too, for convenience)
     def status(self):
         status = {}
 
-        for tup in self.kraken_device.get_status():
+        rawStatus = self.kraken_device.get_status()
+        for tup in rawStatus:
             status[tup[0].lower().split(' ')[0]] = tup[1]
 
         status['cpu'] = self.cpu_temperature()
+
+        # if status['liquid'] < 5:
+        #     print(rawStatus)
 
         return status
 
@@ -217,38 +314,77 @@ class KrakenController:
     def update_speed(self):
         with self.kraken_device.connect():
             status = self.status()
-            self.dbus_interface.CPUTemp = status['cpu']
 
-            if not(status['pump'] == 0 or status['fan'] == 0):
-                self.dbus_interface.LiquidTemp = status['liquid']
-                self.dbus_interface.FanDuty = status['fan']
-                self.dbus_interface.PumpDuty = status['pump']
+            self.dbus_interface.CPUTemp = int(status['cpu'])
+            if not (status['liquid'] < 5 and status['fan'] == 0 and status['pump'] == 0):
+                self.dbus_interface.LiquidTemp = int(status['liquid'])
+                self.dbus_interface.FanDuty = int(status['fan'])
+                self.dbus_interface.PumpDuty = int(status['pump'])
 
-            current_speed = {
-                'fan': int(status['fan']),
-                'pump': int(status['pump'])
-            }
-            new_speed = {
-                'fan': 0,
-                'pump': 0
-            }
+            forced = False
+            current_speed = {}
+            new_speed = {}
+            force_update = {}
+
+            for target in self.TARGETS:
+                current_speed[target] = int(status[target])
+                new_speed[target] = 0
+                force_update[target] = False
+
+            boost_duration = max(self.configMgr.config['boost_duration'], self.CHECK_INTERVAL*1.5, self.MIN_BOOST_DURATION)
+            boosting = monotonic() < (self.boost_start + boost_duration)
+            if boosting:
+                if not self.was_boosting:
+                    print("pulley boost started for approx " + str(boost_duration) + "s")
+                    self.was_boosting = True
+                    self.boost_start = monotonic()
+
+                for target in self.TARGETS:
+                    new_speed[target] = self.MAX_SPEED[target]
+                    if self.last_speed_set[target] != new_speed[target]:
+                        force_update[target] = True
+                        forced = True
+            elif self.was_boosting:
+                print("pulley boost ended")
+                self.was_boosting = False
+                for target in self.TARGETS:
+                    force_update[target] = True
+                    forced = True
 
             # determiune the maximum speed defined for each source,
             # e.g. if liquid resolves fan speed 25 and cpu resolves fan speed 30 then fan speed will be 30
+            # because I'm lazy and I wrote bad code we still enter this loop even in fixed mode to detect critical temp
             reached_critical_temp = False
             for target in self.TARGETS:
                 for source in self.SOURCES:
                     temp = status[source]
-                    if temp <= 0:
+                    if temp <= 5:
+                        # there seems to be a bug in liquidctl (or in our use of it?) where sometimes temperature is 0, 1 or 2 C and
+                        # all other values are 0
                         continue
-                    if temp >= self.CRIT_TEMP[source]:
+                    if temp >= int(self.configMgr.config[source + "_critical"]):
                         new_speed[target] = self.MAX_SPEED[target]
                         reached_critical_temp = True
                     else:
-                        curve = self.CURVES[target][source]
-                        speed = int(interp(temp, curve['temp'], curve['speed']))
-                        new_speed[target] = max(new_speed[target], speed)
+                        # this check is here so that the critical liquid temp gets done even if we are not using the liquid temperature
+                        # to control speeds
+                        if source == 'liquid' and not self.configMgr.config['use_liquid_temp']:
+                            continue
+                        elif self.configMgr.config['mode'] == 'fixed':
+                            new_speed[target] = max(new_speed[target], self.configMgr.config['fixed_' + target + '_speed'])
+                        else:
+                            curveXAxis = self.configMgr.config[source + "_" + target + "_temp"];
+                            curveYAxis = self.configMgr.config[source + "_" + target + "_speed"];
+                            speed = int(interp(temp, curveXAxis, curveYAxis))
+                            new_speed[target] = max(new_speed[target], speed)
                     new_speed[target] = int(min(self.MAX_SPEED[target], max(self.MIN_SPEED[target], new_speed[target])))
+
+            if reached_critical_temp and self.configMgr.config['boost_after_critical']:
+                if not self.was_boosting:
+                    print("critical temp reached, pulley will boost to maximum duty")
+                    print("pulley boost started until temperature is reduced")
+                    self.was_boosting = True
+                self.boost_start = monotonic()
 
             # print("New speeds: ", new_speed)
             time_now = monotonic()
@@ -256,8 +392,6 @@ class KrakenController:
 
             temp_diff_exceeds_required = reached_critical_temp
             time_diff_exceeds_required = reached_critical_temp
-            forced = False
-            force_update = {'fan': False, 'pump': False}
 
             # after a period of time ensure that the set speed was actually set
             if time_since_update > self.FORCE_SET_INTERVAL:
@@ -281,9 +415,6 @@ class KrakenController:
                     time_diff_exceeds_required = True
 
             if forced or (temp_diff_exceeds_required and time_diff_exceeds_required):
-                for source in self.SOURCES:
-                    print(source, " ", status[source])
-
                 self.last_update = time_now
                 for source in self.SOURCES:
                     self.last_temp[source] = status[source]
@@ -311,10 +442,17 @@ class KrakenController:
 
 if __name__ == '__main__':
     elevate()
-    dbus_iface = KrakenControllerDBUS();
-    bus = SystemBus()
-    bus.publish("net.mjjw.KrakenController", dbus_iface)
-    controller = KrakenController(dbus_iface)
+    configMgr = KrakenControllerConfig();
+    configMgr.readConfig()
+    configMgr.writeConfig()
+
+    dbus_iface = KrakenControllerDBUS(configMgr);
+    controller = KrakenController(dbus_iface, configMgr)
+
+    if configMgr.config['enable_dbus']:
+        bus = SystemBus()
+        bus.publish("net.mjjw.KrakenController", dbus_iface)
+
     GLib.timeout_add(controller.CHECK_INTERVAL*1000, lambda: controller.on_timer())
     loop = GLib.MainLoop()
     loop.run()
