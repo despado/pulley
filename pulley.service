@@ -6,9 +6,9 @@ After=multi-user.target
 Type=simple
 Restart=on-failure
 RestartSec=5s
-ExecStart=/usr/bin/python3 /home/mjjw/Coding/pulley/pulley.py
+ExecStart=/usr/bin/python3 /opt/pulley/pulley.py
 StandardInput=tty-force
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target
 

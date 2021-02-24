@@ -47,24 +47,15 @@ The name CAM was taken.
 
 ## Installation
 
-On my distribution something like this will probably work. Yours may differ:
+The install script is tested on Linux Mint 20, but it should work on any modern
+Linux distro. If you are using cinnamon then the applet should get installed too.
 
-    # download code
+    git clone https://github.com/despado/pulley
     cd pulley
-    sudo apt install python3 python3-pip libusb-1.0-0
-    pip3 install -r ./requirements.txt
-    # edit this file to adjust your fan curves
-    sudo cp pulley.conf /etc/pulley.conf
-    # to auto run pulley
-    # edit the file pulley.service to point to the right place
-    nano pulley.service # .....
-    sudo cp pulley.service /lib/systemd/system/pulley.service
-    sudo systemctl daemon-reload
-    sudo systemctl enable pulley.service
-    sudo systemctl start pulley.service
-    # if you use cinnamon 
-    cp pulley@mjjw ~/.local/share/cinnamon/applets/pulley@mjjw
-    # now right click on taskbar, select applets, find Kraken Control, select it, click + at bottom of window
+    sudo bash install.sh
+
+If you use cinnamon don't forget to right click on the tast bar, select applets,
+find Kraken Control, select it, click + at bottom of window
 
 ### Seems kind of complicated?
 
