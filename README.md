@@ -55,7 +55,11 @@ Linux distro. If you are using cinnamon then the applet should get installed too
     sudo bash install.sh
 
 If you use cinnamon don't forget to right click on the tast bar, select applets,
-find Kraken Control, select it, click + at bottom of window
+find Kraken Control, select it, click + at bottom of window.
+
+## Configuration
+
+Edit /etc/pulley.conf, the fan curves map temperature to speed.
 
 ### Seems kind of complicated?
 
