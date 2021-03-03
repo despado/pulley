@@ -2,7 +2,7 @@
 const St = imports.gi.St;
 const PopupMenu = imports.ui.popupMenu;
 const GLib = imports.gi.GLib;
-const Gio = imports.gi.Gio; // Needed for file infos
+const Gio = imports.gi.Gio;
 const Util = imports.misc.util;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
@@ -24,6 +24,12 @@ const KrakenControllerProxy = Gio.DBusProxy.makeProxyWrapper('\
 <node> \
     <interface name="net.mjjw.KrakenController"> \
         <method name=\'Boost\'> \
+        </method> \
+        <method name=\'GetConfig\'> \
+            <arg type="s" name="config" direction="out" /> \
+        </method> \
+        <method name=\'UpdateConfig\'> \
+            <arg type="s" name="config" direction="in" /> \
         </method> \
         <property name="KrakenDevice" type="s" access="read"> \
             <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/> \
@@ -84,6 +90,7 @@ KrakenControlApplet.prototype = {
         this.kcProxyPropertiesID = null;
         this.busWatchId = null;
         this.connectDBus();
+        this.menuUpdate = 0;
     },
     update_kraken_info: function(proxy) {
         var updates = false;
@@ -222,13 +229,21 @@ KrakenControlApplet.prototype = {
         if (this.state.showBoost) {
             items.push(["Boost", function() { this.kcProxy.BoostSync(); }.bind(this)]);
         }
+        items.push(["Configure Pulley", function() {
+            let proc = Gio.Subprocess.new(["/usr/bin/gjs-console", '/opt/pulley/pulley.js'], 0);
+            proc.wait_async(null, null);
+        }.bind(this)]);
         if (kraken_info.LiquidTemp <= 0 && kraken_info.CPUTemp <= 0 && kraken_info.PumpDuty <= 0 && kraken_info.FanDuty <= 0)
             items = [ items[0], "Is pulley running?" ];
             
         this.set_applet_label("CPU: " + cpuTemp);
         if (this.menu.isOpen) {
-            this.buildMenu(items);
+            if ((this.menuUpdate++)==4) {
+                this.menuUpdate = 0;
+                this.buildMenu(items);
+            }
         } else {
+            this.menuUpdate = 0;
             this.menuItems = items;
         }
     }

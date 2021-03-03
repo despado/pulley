@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Pulley
+Icon=/opt/pulley/pulley.png
+Comment=Kraken Control GUI
+Exec=/usr/bin/gjs-console /opt/pulley/pulley.js
+Version=1.0
+Type=Application
+Categories=GTK;System;
+Terminal=false
+StartupNotify=false

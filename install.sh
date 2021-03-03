@@ -1,5 +1,5 @@
 #! /bin/bash
-if [ "$EUID" -ne 0 ]; then 
+if [[ "$EUID" -ne 0 ]]; then
 	echo "This script requires root priviledge, try again using sudo"
 	exit
 fi
@@ -16,12 +16,21 @@ echo "Installing requirements"
 pip3 install -r ./requirements.txt
 
 echo "Copying files"
-cp LICENSE /opt/pulley/
-cp pulley.py /opt/pulley/
+cp LICENSE /opt/pulley/LICENSE
+cp pulley.py /opt/pulley/pulley.py
+cp pulley.js /opt/pulley/pulley.js
+cp pulley@mjjw/icon.png /opt/pulley/pulley.png
 
 if [ -d $HOME/.local/share/cinnamon ]; then
 	echo "Installing cinnamon applet"
 	cp -r mjjw@pulley $HOME/.local/share/cinnamon/mjjw@pulley
+    chown -R $USER.$USER $HOME/.local/share/cinnamon/mjjw@pulley
+fi
+
+if [ -d $HOME/.local/share/applications ]; then
+	echo "Installing desktop icon"
+	cp pulley.desktop $HOME/.local/share/applications/pulley.desktop
+    chown $USER.$USER $HOME/.local/share/applications/pulley.desktop
 fi
 
 if [ -f /opt/pulley/pulley.py ]; then

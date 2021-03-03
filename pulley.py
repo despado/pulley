@@ -18,7 +18,7 @@ class KrakenControllerConfig:
             'mode': "custom",
             'enable_dbus': True,
             'use_liquid_temp': False,
-            'boost_duration': 600,
+            'boost_duration': 60,
             'cpu_critical': 80,
             'liquid_critical': 40,
             'boost_after_critical': True,
@@ -121,11 +121,178 @@ class KrakenControllerConfig:
         for name in names:
             self.readValue(config_out, section, name)
 
+    def toJSON(self):
+        result = json.dumps({
+            'mode': self.config['mode'],
+            'use_liquid_temp': self.config['use_liquid_temp'],
+            'boost_duration': self.config['boost_duration'],
+            'cpu_critical': self.config['cpu_critical'],
+            'liquid_critical': self.config['liquid_critical'],
+            'boost_after_critical': self.config['boost_after_critical'],
+            'fixed_fan_speed': self.config['fixed_fan_speed'],
+            'fixed_pump_speed': self.config['fixed_pump_speed'],
+            'cpu_pump_temp': self.config['cpu_pump_temp'],
+            'cpu_pump_speed': self.config['cpu_pump_speed'],
+            'cpu_fan_temp': self.config['cpu_fan_temp'],
+            'cpu_fan_speed': self.config['cpu_fan_speed'],
+            'liquid_pump_temp': self.config['liquid_pump_temp'],
+            'liquid_pump_speed': self.config['liquid_pump_speed'],
+            'liquid_fan_temp': self.config['liquid_fan_temp'],
+            'liquid_fan_speed': self.config['liquid_fan_speed']
+        });
+        return result
+
+    def parseJSON(self, rawConfigStr):
+        rawConfig = json.loads(rawConfigStr)
+        newConfig = {}
+        newConfig['enable_dbus'] = self.config['enable_dbus']
+
+        if "mode" in rawConfig and (rawConfig['mode'] == "fixed" or rawConfig['mode']=="custom"):
+            newConfig['mode'] = str(rawConfig['mode'])
+        else:
+            return
+
+        if "use_liquid_temp" in rawConfig and (rawConfig['use_liquid_temp'] == True or rawConfig['use_liquid_temp'] == False):
+            newConfig['use_liquid_temp'] = bool(rawConfig['use_liquid_temp'])
+        else:
+            return
+
+        if 'boost_duration' in rawConfig and (rawConfig['boost_duration'] >=0 and rawConfig['boost_duration'] <= 1800):
+            newConfig['boost_duration'] = int(rawConfig['boost_duration'])
+        else:
+            return
+
+        if "cpu_critical" in rawConfig and (rawConfig['cpu_critical'] >=0 and rawConfig['cpu_critical'] <= 150):
+            newConfig['cpu_critical'] = int(rawConfig['cpu_critical'])
+        else:
+            return
+
+        if "liquid_critical" in rawConfig and(rawConfig['liquid_critical'] >=0 and rawConfig['liquid_critical'] <= 150):
+            newConfig['liquid_critical'] = int(rawConfig['liquid_critical'])
+        else:
+            return
+
+        if 'boost_after_critical' in rawConfig and (rawConfig['boost_after_critical'] == True or rawConfig['boost_after_critical'] == False):
+            newConfig['boost_after_critical'] = bool(rawConfig['boost_after_critical'])
+        else:
+            return
+
+        if 'fixed_fan_speed' in rawConfig and (rawConfig['fixed_fan_speed'] >=0 and rawConfig['fixed_fan_speed'] <= 100):
+            newConfig['fixed_fan_speed'] = int(rawConfig['fixed_fan_speed'])
+        else:
+            return
+
+        if 'fixed_pump_speed' in rawConfig and (rawConfig['fixed_pump_speed'] >=0 and rawConfig['fixed_pump_speed'] <= 100):
+            newConfig['fixed_pump_speed'] = int(rawConfig['fixed_pump_speed'])
+        else:
+            return
+            
+        if 'cpu_pump_temp' in rawConfig and 'cpu_pump_speed' in rawConfig and isinstance(rawConfig['cpu_pump_temp'], list) and isinstance(rawConfig['cpu_pump_speed'], list) and len(rawConfig['cpu_pump_temp'])>0 and len(rawConfig['cpu_pump_temp']) == len(rawConfig['cpu_pump_speed']):
+            newConfig['cpu_pump_temp'] = []
+            newConfig['cpu_pump_speed'] = []
+            prev = 0
+            for val in rawConfig['cpu_pump_temp']:
+                if prev > int(val):
+                    return
+                if int(val) > 150:
+                    return
+                prev = int(val);
+                newConfig['cpu_pump_temp'].append(int(val))
+
+            prev = 0
+            for val in rawConfig['cpu_pump_speed']:
+                if prev > int(val):
+                    return
+                if int(val) > 100:
+                    return
+                prev = int(val);
+                newConfig['cpu_pump_speed'].append(int(val))
+        else:
+            return
+
+        if 'cpu_fan_temp' in rawConfig and 'cpu_fan_speed' in rawConfig and isinstance(rawConfig['cpu_fan_temp'], list) and isinstance(rawConfig['cpu_fan_speed'], list) and len(rawConfig['cpu_fan_temp'])>0 and len(rawConfig['cpu_fan_temp']) == len(rawConfig['cpu_fan_speed']):
+            newConfig['cpu_fan_temp'] = []
+            newConfig['cpu_fan_speed'] = []
+            prev = 0
+            for val in rawConfig['cpu_fan_temp']:
+                if prev > int(val):
+                    return
+                if int(val) > 150:
+                    return
+                prev = int(val);
+                newConfig['cpu_fan_temp'].append(int(val))
+
+            prev = 0
+            for val in rawConfig['cpu_fan_speed']:
+                if prev > int(val):
+                    return
+                if int(val) > 100:
+                    return
+                prev = int(val);
+                newConfig['cpu_fan_speed'].append(int(val))
+        else:
+            return
+
+        if 'liquid_pump_temp' in rawConfig and 'liquid_pump_speed' in rawConfig and isinstance(rawConfig['liquid_pump_temp'], list) and isinstance(rawConfig['liquid_pump_speed'], list) and len(rawConfig['liquid_pump_temp'])>0 and len(rawConfig['liquid_pump_temp']) == len(rawConfig['liquid_pump_speed']):
+            newConfig['liquid_pump_temp'] = []
+            newConfig['liquid_pump_speed'] = []
+            prev = 0;
+            for val in rawConfig['liquid_pump_temp']:
+                if prev > int(val):
+                    return
+                if int(val) > 150:
+                    return
+                prev = int(val);
+                newConfig['liquid_pump_temp'].append(int(val))
+
+            prev = 0;
+            for val in rawConfig['liquid_pump_speed']:
+                if prev > int(val):
+                    return
+                if int(val) > 100:
+                    return
+                prev = int(val);
+                newConfig['liquid_pump_speed'].append(int(val))
+        else:
+            return
+
+        if 'liquid_fan_temp' in rawConfig and 'liquid_fan_speed' in rawConfig and isinstance(rawConfig['liquid_fan_temp'], list) and isinstance(rawConfig['liquid_fan_speed'], list) and len(rawConfig['liquid_fan_temp'])>0 and len(rawConfig['liquid_fan_temp']) == len(rawConfig['liquid_fan_speed']):
+            newConfig['liquid_fan_temp'] = []
+            newConfig['liquid_fan_speed'] = []
+            prev = 0;
+            for val in rawConfig['liquid_fan_temp']:
+                if prev > int(val):
+                    return
+                if int(val) > 150:
+                    return
+                prev = int(val);
+                newConfig['liquid_fan_temp'].append(int(val))
+
+            prev = 0;
+            for val in rawConfig['liquid_fan_speed']:
+                if prev > int(val):
+                    return
+                if int(val) > 100:
+                    return
+                prev = int(val);
+                newConfig['liquid_fan_speed'].append(int(val))
+        else:
+            return
+
+        self.config = newConfig
+        self.writeConfig()
+
 class KrakenControllerDBUS(object):
     dbus = """
         <node>
             <interface name='net.mjjw.KrakenController'>
                 <method name='Boost'>
+                </method>
+                <method name=\'GetConfig\'>
+                    <arg type="s" name="config" direction="out" />
+                </method>
+                <method name=\'UpdateConfig\'>
+                    <arg type="s" name="config" direction="in" />
                 </method>
                 <property name="KrakenDevice" type="s" access="read">
                     <annotation name="org.freedesktop.DBus.Property.EmitsChangedSignal" value="true"/>
@@ -208,8 +375,12 @@ class KrakenControllerDBUS(object):
         if self.controller is not None:
             self.controller.boost()
 
-    def onConfigUpdated(self):
-        self.configMgr.writeConfig()
+    def GetConfig(self):
+        return self.configMgr.toJSON();
+
+    def UpdateConfig(self, newConfig):
+        self.configMgr.parseJSON(newConfig)
+        self.controller.update_speed_(True)
 
     PropertiesChanged = signal()
 
@@ -223,7 +394,7 @@ class KrakenController:
     TARGETS = ['fan', 'pump']
 
     # The time (in seconds) to wait between checking speeds
-    CHECK_INTERVAL = 2
+    CHECK_INTERVAL = 1
 
     # If the speed is not the desired speed after a given time, update it again
     FORCE_SET_INTERVAL = 10
@@ -270,7 +441,7 @@ class KrakenController:
     # Run fan and pump at maximum for a few minutes
     def boost(self):
         self.boost_start = monotonic()
-        self.update_speed()
+        self.update_speed_(True)
 
     # Returns a dictionary containing the status details of the Kraken.
     #
@@ -312,6 +483,9 @@ class KrakenController:
         raise Exception("Unable to find CPU temperature")
 
     def update_speed(self):
+        self.update_speed_(False)
+
+    def update_speed_(self, autoforce):
         with self.kraken_device.connect():
             status = self.status()
 
@@ -321,7 +495,7 @@ class KrakenController:
                 self.dbus_interface.FanDuty = int(status['fan'])
                 self.dbus_interface.PumpDuty = int(status['pump'])
 
-            forced = False
+            forced = autoforce
             current_speed = {}
             new_speed = {}
             force_update = {}
@@ -335,7 +509,7 @@ class KrakenController:
             boosting = monotonic() < (self.boost_start + boost_duration)
             if boosting:
                 if not self.was_boosting:
-                    print("pulley boost started for approx " + str(boost_duration) + "s")
+                    # print("pulley boost started for approx " + str(boost_duration) + "s")
                     self.was_boosting = True
                     self.boost_start = monotonic()
 
@@ -345,7 +519,7 @@ class KrakenController:
                         force_update[target] = True
                         forced = True
             elif self.was_boosting:
-                print("pulley boost ended")
+                # print("pulley boost ended")
                 self.was_boosting = False
                 for target in self.TARGETS:
                     force_update[target] = True
@@ -375,14 +549,16 @@ class KrakenController:
                         else:
                             curveXAxis = self.configMgr.config[source + "_" + target + "_temp"];
                             curveYAxis = self.configMgr.config[source + "_" + target + "_speed"];
-                            speed = int(interp(temp, curveXAxis, curveYAxis))
+                            # if we get a borked curve default to 100, if we are off the end then clamp to the last values on the curve,
+                            # otherwise interpolate through the curve
+                            speed = int(100) if (len(curveXAxis)<=0 or len(curveXAxis) != len(curveYAxis)) else (int(curveYAxis[len(curveYAxis)-1]) if (temp >= curveXAxis[len(curveXAxis)-1]) else int(curveYAxis[0]) if (temp < curveXAxis[0]) else int(interp(temp, curveXAxis, curveYAxis)))
                             new_speed[target] = max(new_speed[target], speed)
                     new_speed[target] = int(min(self.MAX_SPEED[target], max(self.MIN_SPEED[target], new_speed[target])))
 
             if reached_critical_temp and self.configMgr.config['boost_after_critical']:
                 if not self.was_boosting:
-                    print("critical temp reached, pulley will boost to maximum duty")
-                    print("pulley boost started until temperature is reduced")
+                    # print("critical temp reached, pulley will boost to maximum duty")
+                    # print("pulley boost started until temperature is reduced")
                     self.was_boosting = True
                 self.boost_start = monotonic()
 
@@ -423,11 +599,10 @@ class KrakenController:
                     if new_speed[target] <= 0:
                         continue
                     if new_speed[target] != self.last_speed_set[target] or force_update[target]:
-                        if force_update[target]:
-                            print("Setting ", target, " ", current_speed[target], " => ", new_speed[target], " (forced)")
-                        else:
-                            print("Setting ", target, " ", self.last_speed_set[target], " => ", new_speed[target])
-
+                        # if force_update[target]:
+                        #     print("Setting ", target, " ", current_speed[target], " => ", new_speed[target], " (forced)")
+                        # else:
+                        #     print("Setting ", target, " ", self.last_speed_set[target], " => ", new_speed[target])
                         self.last_speed_set[target] = new_speed[target]
                         self.kraken_device.set_fixed_speed(target, new_speed[target])
 
