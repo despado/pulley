@@ -30,10 +30,13 @@ The name CAM was taken.
 
 ## Features
 
+![GitHub Logo](/images/pulley.png)
+
 * Controls the pump and fan speed based on liquid and CPU temperature
 * Applies hysteresis to prevent overly frequent updates
 * Works on Linux only (easily portable if you know how to get CPU temperature)
 * No warranty whatsoever, don't blame me if your PC catches fire
+* GUI editor for fan curves
 * Cinnamon Applet
 * Controlled by config file
 
@@ -41,6 +44,7 @@ The name CAM was taken.
 
 * Python 3.7 (older versions of Python 3 might also work)
 * Pip
+* liquidctl
 * libusb (for liquidctl)
 * A single Kraken X or Z (pulley simply picks the first one available)
 * Linux
@@ -75,11 +79,10 @@ You can't, none is provided. Sorry about that.
 
 ## TODO
 
-* Integrate with [gkraken](https://gitlab.com/leinardi/gkraken) or similar for
-  a nice UI to set fan curves
 * Package this up with proper installation rather than bodged together shell script
 * CPU temperature display on Z series
 * Set the ring color based on temperature on X series
+* Display temperatures on the Z series
 
 ## License
 
