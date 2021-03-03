@@ -44,6 +44,7 @@ The name CAM was taken.
 
 * Python 3.7 (older versions of Python 3 might also work)
 * Pip
+* liquidctl
 * libusb (for liquidctl)
 * A single Kraken X or Z (pulley simply picks the first one available)
 * Linux
