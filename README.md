@@ -36,9 +36,10 @@ The name CAM was taken.
 * Applies hysteresis to prevent overly frequent updates
 * Works on Linux only (easily portable if you know how to get CPU temperature)
 * No warranty whatsoever, don't blame me if your PC catches fire
-* GUI editor for fan curves
+* GUI editor for fan curves (or use config file if that's your thing)
 * Cinnamon Applet
-* Controlled by config file
+
+![GitHub Logo](/images/applet.png)
 
 ## Requirements
 
